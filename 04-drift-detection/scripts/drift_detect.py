@@ -94,18 +94,45 @@ def main() -> int:
     for col, m in summary.items():
         print(f"  {col:<20} PSI={m['psi']:.3f}  KL={m['kl']:.3f}  KS={m['ks_stat']:.3f}  drift={m['drift']}")
 
-    # Optional: full Evidently HTML report (large dependency, gracefully skip if missing)
+    html_path = REPORTS_DIR / "drift-report.html"
+
+    # Optional: full Evidently HTML report (may fail on some pydantic / evidently combos)
     try:
         from evidently.report import Report
         from evidently.metric_preset import DataDriftPreset
 
         report = Report(metrics=[DataDriftPreset()])
         report.run(reference_data=reference, current_data=current)
-        html_path = REPORTS_DIR / "drift-report.html"
         report.save_html(str(html_path))
         print(f"Wrote: {html_path}")
-    except ImportError:
-        print("evidently not installed; skipping HTML report. Install with: pip install evidently")
+    except Exception as exc:  # noqa: BLE001 — lab must always emit a viewable HTML artifact
+        print(f"Evidently HTML skipped ({exc!r}); writing fallback drift-report.html")
+        rows = "".join(
+            f"<tr><td>{col}</td><td>{m['psi']}</td><td>{m['kl']}</td><td>{m['ks_stat']}</td>"
+            f"<td>{m['ks_pvalue']}</td><td><b>{m['drift']}</b></td></tr>"
+            for col, m in summary.items()
+        )
+        html_path.write_text(
+            f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>Day 23 — Drift summary (fallback)</title>
+<style>
+body {{ font-family: system-ui, sans-serif; margin: 2rem; }}
+table {{ border-collapse: collapse; width: 100%; max-width: 56rem; }}
+th, td {{ border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: left; }}
+th {{ background: #f4f4f4; }}
+caption {{ text-align: left; font-weight: 600; margin-bottom: 0.5rem; }}
+</style></head><body>
+<p>Reference vs current: synthetic AI feature table (see <code>drift_detect.py</code>).</p>
+<table>
+<caption>PSI / KL / KS (lab CLI metrics; Evidently UI unavailable in this environment)</caption>
+<thead><tr><th>Feature</th><th>PSI</th><th>KL</th><th>KS stat</th><th>KS p-value</th><th>Drift flag</th></tr></thead>
+<tbody>{rows}</tbody>
+</table>
+</body></html>""",
+            encoding="utf-8",
+        )
+        print(f"Wrote: {html_path}")
     return 0
 
 

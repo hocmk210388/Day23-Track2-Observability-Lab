@@ -14,6 +14,22 @@ Day 23 is the **integrative day** for Phase 2 Track 2. This track wires the obse
 | 21 (skipped) | — | not yet authored as of 2026-05 |
 | 22 alignment | DPO model | push `dpo_eval_pass_rate` gauge via `monitor-day22-alignment.py` |
 
+### Rubric #19 — “at least 1 prior-day source connected” (stub OK)
+
+1. **Pull latest `prometheus.yml` + `docker-compose.yml`** (Prometheus scrapes `host.docker.internal:9101` / `:9102`).
+2. **Restart Prometheus** so it loads the new jobs:  
+   `docker compose up -d prometheus`  
+   (or `docker compose restart prometheus`).
+3. On the **host** (same machine as Docker Desktop), from the repo root, in **two terminals**:
+   - `python 05-integration/monitor-day19-vector-store.py`  → stub metrics on **:9101** (`day19_qdrant_collections`, …)
+   - `python 05-integration/monitor-day20-llama-cpp.py`       → stub metrics on **:9102** (`day20_llamacpp_tokens_per_second`, …)  
+   Use your lab env: `conda activate …` then `python` if needed.
+4. Check Prometheus **Targets** (`http://localhost:9090/targets`) — `day19-stub` / `day20-stub` should be **UP**.
+5. Grafana → **Cross-Day Stack** dashboard → **Refresh** — Day **19** and/or **20** panels should show **numbers**, not only “No Data”.
+6. **Screenshot** that view for rubric **#19** (and it still satisfies **#20** six-panel layout).
+
+If a target stays **DOWN**, confirm Windows Firewall allows Python to listen on 9101/9102 and that Docker can reach `host.docker.internal` (Compose adds `extra_hosts: host-gateway` for Prometheus).
+
 ## Run
 
 If you have prior days running locally:
@@ -31,7 +47,13 @@ If you don't have prior days running, the integration scripts will **stub** the 
 
 ## Cross-day dashboard
 
-`full-stack-dashboard.json` shows one panel per source day. Designed to fail-soft — panels with no data show "No Data" rather than breaking.
+The same definition is **auto-loaded** with the stack as:
+
+`02-prometheus-grafana/grafana/dashboards/cross-day-stack.json`
+
+In Grafana: folder **AICB Day 23**, title **Cross-Day Stack (Day 23 integrative)** (UID `day23-cross-day`). After `make up` or `docker compose restart grafana`, open **Dashboards → browse → AICB Day 23**.
+
+`full-stack-dashboard.json` in this folder is the **source copy** kept next to the integration scripts; edit either and sync if you change panel queries.
 
 ## Submission checkpoint (15 pts)
 

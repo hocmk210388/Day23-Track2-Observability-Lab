@@ -1,4 +1,5 @@
 .env
+02-prometheus-grafana/alertmanager/slack_url
 __pycache__/
 *.pyc
 *.pyo

@@ -48,11 +48,36 @@ GPU_UTIL = Gauge(
     "Simulated GPU utilization [0,100]",
 )
 
-tracer = trace.get_tracer(__name__)
+_otel_configured = False
 
 
-def setup_otel() -> None:
-    """Configure OTLP trace export + FastAPI auto-instrumentation."""
+def get_tracer() -> trace.Tracer:
+    """Always resolve from the global provider (call after ``setup_otel``).
+
+    ``from instrumentation import tracer`` binds once at import time and does
+    *not* update when ``setup_otel`` replaces the provider, which breaks nesting
+    with FastAPI auto-instrumentation spans.
+    """
+    return trace.get_tracer(__name__)
+
+
+def setup_otel(app: object) -> None:
+    """Configure OTLP trace export + FastAPI auto-instrumentation.
+
+    ``app`` must be the FastAPI instance so ``POST /predict`` server spans
+    share the same trace context as manual spans (``instrument()`` without
+    ``app`` often does not attach middleware to your app).
+
+    Call once after all routes are registered and **before** the ASGI server
+    starts accepting traffic — not from ``lifespan``, because
+    ``instrument_app`` uses ``add_middleware``, which Starlette forbids after
+    startup.
+    """
+    global _otel_configured
+    if _otel_configured:
+        return
+    _otel_configured = True
+
     resource = Resource.create(
         {
             "service.name": os.getenv("OTEL_SERVICE_NAME", "inference-api"),
@@ -69,10 +94,7 @@ def setup_otel() -> None:
         BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
     )
     trace.set_tracer_provider(provider)
-    # Auto-instrument FastAPI handlers (creates server spans for every route)
-    from fastapi import FastAPI  # local import: only needed at setup
-
-    FastAPIInstrumentor().instrument()
+    FastAPIInstrumentor().instrument_app(app)
     _configure_logging()
 
 
